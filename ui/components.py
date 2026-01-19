@@ -55,9 +55,7 @@ class ProfileDialog(QDialog):
         layout_basic.addRow("設定檔名稱 *", self.edit_name)
         layout_basic.addRow("Instagram 帳號 *", self.edit_username)
         layout_basic.addRow("Instagram 密碼 *", pw_layout)
-        layout_basic.addRow(
-            "目標用戶 (User ID / Username) *", self.edit_target
-        )  # Updated label
+        layout_basic.addRow("目標用戶 (User ID) *", self.edit_target)  # Updated label
         layout_basic.addRow("備註說明", self.edit_note)
         self.tab_basic.setLayout(layout_basic)
 
