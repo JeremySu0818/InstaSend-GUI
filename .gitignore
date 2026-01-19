@@ -1,3 +1,9 @@
+# venv
+.venv
+
 # Pyinstaller
 /dist
 /build
+
+# PyCache
+__pycache__/
