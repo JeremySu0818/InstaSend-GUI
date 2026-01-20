@@ -29,7 +29,7 @@ class DMWindow(QWidget):
         super().__init__()
         self.setWindowIcon(QIcon(resource_path("assets/icon.ico")))
         self.status = self.STATUS_IDLE
-        self.setWindowTitle("InstaSend (Instagrapi Edition)")
+        self.setWindowTitle("InstaSend")
         self.setMinimumSize(QSize(650, 520))
         self.setStyleSheet(QSS_STYLE)
 
