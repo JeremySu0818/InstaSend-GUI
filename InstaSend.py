@@ -2,7 +2,9 @@
 import sys
 import os
 
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+base_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(base_dir)
+sys.path.append(os.path.join(base_dir, "modules"))
 
 from PyQt5.QtWidgets import QApplication
 from ui.main_window import DMWindow

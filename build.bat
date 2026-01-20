@@ -9,6 +9,7 @@ uv run pyinstaller ^
     --windowed ^
     --icon="assets/icon.ico" ^
     --add-data "assets;assets" ^
+    --paths "modules" ^
     --name "InstaSend" ^
     InstaSend.py
 
