@@ -106,6 +106,14 @@ class DMWindow(QWidget):
             return self.profile_names[row]
         return None
 
+    def _get_profile_data(self, section):
+        profile_data = {}
+        self.settings.beginGroup(section)
+        for key in self.settings.childKeys():
+            profile_data[key] = self.settings.value(key)
+        self.settings.endGroup()
+        return profile_data
+
     def add_profile(self):
         dialog = ProfileDialog(self, title="Add Profile")
         if dialog.exec_():
@@ -131,11 +139,7 @@ class DMWindow(QWidget):
         if not section:
             QMessageBox.information(self, "Please Select", "Please select a profile to edit.")
             return
-        profile_data = {}
-        self.settings.beginGroup(section)
-        for key in self.settings.childKeys():
-            profile_data[key] = self.settings.value(key)
-        self.settings.endGroup()
+        profile_data = self._get_profile_data(section)
         profile_data["section"] = section
         dialog = ProfileDialog(self, profile_data=profile_data, title="Edit Profile")
         if dialog.exec_():
@@ -144,8 +148,6 @@ class DMWindow(QWidget):
             if not all(
                 [
                     new_section,
-                    d2["username"],
-                    d2["password"],
                     d2["username"],
                     d2["password"],
                     d2["target_user"],
@@ -189,11 +191,7 @@ class DMWindow(QWidget):
         if self.active_thread and self.active_thread.isRunning():
             QMessageBox.warning(self, "Process Running", "Please stop the current process first.")
             return
-        profile_data = {}
-        self.settings.beginGroup(section)
-        for key in self.settings.childKeys():
-            profile_data[key] = self.settings.value(key)
-        self.settings.endGroup()
+        profile_data = self._get_profile_data(section)
         self.active_profile = profile_data
         self.active_thread = SendDMThread(profile_data)
         self.active_thread.status_signal.connect(self.status_label.setText)
