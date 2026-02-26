@@ -98,6 +98,14 @@ class SendDMThread(QThread):
                 self.error_signal.emit(f"Re-login or retry failed: {e}")
                 return False
 
+    def _remove_session_file(self):
+        if self._session_file and os.path.exists(self._session_file):
+            try:
+                os.remove(self._session_file)
+                self.status_signal.emit("Removed invalid session file.")
+            except Exception as e:
+                self.status_signal.emit(f"Could not remove session file: {e}")
+
     def run(self):
         username = self.profile["username"]
         password = self.profile["password"]
@@ -119,6 +127,7 @@ class SendDMThread(QThread):
             self.end_signal.emit()
             return
         except ChallengeRequired:
+            self._remove_session_file()
             self.error_signal.emit(
                 "Account triggered challenge verification. "
                 "Please log in via web/app to resolve, then try again."
@@ -126,10 +135,12 @@ class SendDMThread(QThread):
             self.end_signal.emit()
             return
         except BadPassword:
+            self._remove_session_file()
             self.error_signal.emit("Incorrect password. Please check your settings.")
             self.end_signal.emit()
             return
         except Exception as e:
+            self._remove_session_file()
             self.error_signal.emit(f"Login exception: {str(e)}")
             self.end_signal.emit()
             return
