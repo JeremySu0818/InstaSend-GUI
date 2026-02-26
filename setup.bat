@@ -3,7 +3,6 @@ setlocal enabledelayedexpansion
 
 echo [*] Starting setup process for InstaSend...
 
-:: 檢查 uv 是否安裝
 where uv >nul 2>nul
 if %errorlevel% neq 0 (
     echo [^!] uv was not found on your system.
@@ -17,7 +16,6 @@ if %errorlevel% neq 0 (
         echo [*] Installing uv via official script...
         powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
         
-        :: 嘗試刷新路徑以立即使用 uv
         set "PATH=%PATH%;%USERPROFILE%\.cargo\bin"
         
         where uv >nul 2>nul
@@ -35,17 +33,14 @@ if %errorlevel% neq 0 (
     echo [*] uv is already installed.
 )
 
-:: 檢查 .venv 資料夾
 if exist ".venv" (
     echo [*] Existing .venv detected. Removing old environment...
     rmdir /s /q ".venv"
 )
 
-:: 建立新的虛擬環境
 echo [*] Creating a new virtual environment...
 uv venv --clear
 
-:: 安裝依賴項
 if exist "requirements.txt" (
     echo [*] Installing dependencies from requirements.txt...
     uv pip install -r requirements.txt

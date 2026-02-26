@@ -39,52 +39,52 @@ class SendDMThread(QThread):
         ensure_directory(session_folder)
         session_file = os.path.join(session_folder, f"{username}_session.json")
         self.cl = Client()
-        self.status_signal.emit("初始化 Instagram 客戶端...")
+        self.status_signal.emit("Initializing Instagram client...")
         try:
             if os.path.exists(session_file):
-                self.status_signal.emit(f"嘗試載入 Session: {session_file}")
+                self.status_signal.emit(f"Trying to load Session: {session_file}")
                 self.cl.load_settings(session_file)
-            self.status_signal.emit("登入中...")
+            self.status_signal.emit("Logging in...")
             try:
                 self.cl.login(username, password)
             except TwoFactorRequired:
                 self.error_signal.emit(
-                    "需要雙重驗證 (2FA)，請先關閉或手動登入一次生成 Session。"
+                    "Two-Factor Authentication (2FA) required. Please disable it or log in manually once to generate a session."
                 )
                 self.end_signal.emit()
                 return
             except ChallengeRequired:
                 self.error_signal.emit(
-                    "帳號觸發 Challenge 驗證，請手動登入 Web 版解決。"
+                    "Account triggered challenge verification. Please log in via web to resolve."
                 )
                 self.end_signal.emit()
                 return
             except BadPassword:
-                self.error_signal.emit("密碼錯誤，請檢查設定。")
+                self.error_signal.emit("Incorrect password. Please check your settings.")
                 self.end_signal.emit()
                 return
             self.cl.dump_settings(session_file)
-            self.status_signal.emit("登入成功，Session 已儲存。")
+            self.status_signal.emit("Login successful. Session saved.")
         except Exception as e:
-            self.error_signal.emit(f"登入異常: {str(e)}")
+            self.error_signal.emit(f"Login exception: {str(e)}")
             self.end_signal.emit()
             return
-        self.status_signal.emit("解析目標...")
+        self.status_signal.emit("Resolving target...")
         target_info = self.resolve_target(target_input)
         if not target_info:
-            self.error_signal.emit(f"無法解析目標: {target_input}")
+            self.error_signal.emit(f"Failed to resolve target: {target_input}")
             self.end_signal.emit()
             return
         target_id = target_info["id"]
         target_type = target_info["type"]
-        self.status_signal.emit(f"目標 ({target_type}) ID: {target_id}")
+        self.status_signal.emit(f"Target ({target_type}) ID: {target_id}")
         messages = [
             line
             for line in self.profile.get("message", "").splitlines()
             if line.strip()
         ]
         if not messages:
-            self.error_signal.emit("訊息內容不得為空")
+            self.error_signal.emit("Message content cannot be empty")
             self.end_signal.emit()
             return
         if self.profile.get("send_mode", "single") == "single":
@@ -107,23 +107,23 @@ class SendDMThread(QThread):
         msg_count = 0
         while not self._stopped and msg_count < loop:
             if self._paused:
-                self.status_signal.emit("狀態：暫停中")
+                self.status_signal.emit("Status: Paused")
                 time.sleep(1)
                 continue
-            self.status_signal.emit("狀態：發送中...")
+            self.status_signal.emit("Status: Sending...")
             msg_count += 1
             msg = messages[msg_index]
             msg_index = (msg_index + 1) % len(messages)
             try:
                 self.cl.direct_send(msg, user_ids=[int(target_id)])
-                self.status_signal.emit(f"發送第 {msg_count} 條訊息成功：{msg[:20]}...")
+                self.status_signal.emit(f"Successfully sent message #{msg_count}: {msg[:20]}...")
                 if msg_count >= loop:
                     break
                 if interval_mode == "fixed":
                     sec = interval
                 else:
                     sec = random.uniform(interval_min, interval_max)
-                self.status_signal.emit(f"等待 {sec:.1f} 秒...")
+                self.status_signal.emit(f"Waiting {sec:.1f}s...")
                 slept = 0
                 while slept < sec:
                     if self._stopped:
@@ -132,16 +132,16 @@ class SendDMThread(QThread):
                     slept += 0.1
             except FeedbackRequired:
                 self.error_signal.emit(
-                    "操作頻率過快，已被 Instagram 暫時限制 (Feedback Required)。"
+                    "Action frequency too high. Temporarily restricted by Instagram (Feedback Required)."
                 )
                 break
             except PleaseWaitFewMinutes:
-                self.error_signal.emit("操作過快，請稍候 (Please wait a few minutes)。")
+                self.error_signal.emit("Action too fast. Please wait a few minutes.")
                 time.sleep(60)
             except Exception as e:
-                self.error_signal.emit(f"發送失敗: {e}")
+                self.error_signal.emit(f"Failed to send: {e}")
                 break
-        self.status_signal.emit("任務結束")
+        self.status_signal.emit("Task ended")
         self.end_signal.emit()
 
     def resolve_target(self, input_str):
@@ -162,7 +162,7 @@ class SendDMThread(QThread):
             if user_info and user_info.pk:
                 return {"type": "user", "id": int(user_info.pk)}
         except Exception as e:
-            self.error_signal.emit(f"解析用戶名失敗: {e}")
+            self.error_signal.emit(f"Failed to resolve username: {e}")
             return None
         return None
 

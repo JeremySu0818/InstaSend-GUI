@@ -41,23 +41,23 @@ class DMWindow(QWidget):
         main.addWidget(self.profile_list, 1)
 
         right = QVBoxLayout()
-        group_manage = QGroupBox("帳號管理")
+        group_manage = QGroupBox("Account Management")
         manage_btns = QHBoxLayout()
-        self.btn_new = QPushButton("新增")
-        self.btn_edit = QPushButton("編輯")
-        self.btn_del = QPushButton("刪除")
+        self.btn_new = QPushButton("Add")
+        self.btn_edit = QPushButton("Edit")
+        self.btn_del = QPushButton("Delete")
         manage_btns.addWidget(self.btn_new)
         manage_btns.addWidget(self.btn_edit)
         manage_btns.addWidget(self.btn_del)
         group_manage.setLayout(manage_btns)
         right.addWidget(group_manage)
 
-        group_run = QGroupBox("發送控制")
+        group_run = QGroupBox("Send Control")
         run_btns = QHBoxLayout()
-        self.btn_send = QPushButton("發送")
-        self.btn_pause = QPushButton("暫停")
-        self.btn_resume = QPushButton("繼續")
-        self.btn_stop = QPushButton("結束")
+        self.btn_send = QPushButton("Send")
+        self.btn_pause = QPushButton("Pause")
+        self.btn_resume = QPushButton("Resume")
+        self.btn_stop = QPushButton("Stop")
         run_btns.addWidget(self.btn_send)
         run_btns.addWidget(self.btn_pause)
         run_btns.addWidget(self.btn_resume)
@@ -66,7 +66,7 @@ class DMWindow(QWidget):
         right.addWidget(group_run)
 
         right.addSpacing(12)
-        self.status_label = QLabel("狀態：未啟動")
+        self.status_label = QLabel("Status: Not Started")
         self.status_label.setAlignment(Qt.AlignCenter)
         self.status_label.setFixedHeight(44)
         right.addWidget(self.status_label)
@@ -96,7 +96,7 @@ class DMWindow(QWidget):
             self.settings.beginGroup(name)
             note = self.settings.value("dm_note", "")
             self.settings.endGroup()
-            display = name if not note else f"{name}（{note}）"
+            display = name if not note else f"{name} ({note})"
             self.profile_list.addItem(display)
         self.update_buttons()
 
@@ -107,17 +107,17 @@ class DMWindow(QWidget):
         return None
 
     def add_profile(self):
-        dialog = ProfileDialog(self, title="新增設定檔")
+        dialog = ProfileDialog(self, title="Add Profile")
         if dialog.exec_():
             d = dialog.get_profile()
             name = d["section"]
             if not all(
                 [name, d["username"], d["password"], d["target_user"], d["message"]]
             ):
-                QMessageBox.warning(self, "欄位不完整", "請輸入所有必填欄位。")
+                QMessageBox.warning(self, "Incomplete Fields", "Please fill in all required fields.")
                 return
             if name in self.settings.childGroups():
-                QMessageBox.warning(self, "名稱重複", "此名稱已存在。")
+                QMessageBox.warning(self, "Duplicate Name", "This profile name already exists.")
                 return
             self.settings.beginGroup(name)
             for key, value in d.items():
@@ -129,7 +129,7 @@ class DMWindow(QWidget):
     def edit_profile(self):
         section = self.get_selected_section()
         if not section:
-            QMessageBox.information(self, "請先選擇", "請點選要編輯的設定檔。")
+            QMessageBox.information(self, "Please Select", "Please select a profile to edit.")
             return
         profile_data = {}
         self.settings.beginGroup(section)
@@ -137,7 +137,7 @@ class DMWindow(QWidget):
             profile_data[key] = self.settings.value(key)
         self.settings.endGroup()
         profile_data["section"] = section
-        dialog = ProfileDialog(self, profile_data=profile_data, title="編輯設定檔")
+        dialog = ProfileDialog(self, profile_data=profile_data, title="Edit Profile")
         if dialog.exec_():
             d2 = dialog.get_profile()
             new_section = d2["section"]
@@ -152,11 +152,11 @@ class DMWindow(QWidget):
                     d2["message"],
                 ]
             ):
-                QMessageBox.warning(self, "欄位不完整", "請輸入所有必填欄位。")
+                QMessageBox.warning(self, "Incomplete Fields", "Please fill in all required fields.")
                 return
             if new_section != section:
                 if new_section in self.settings.childGroups():
-                    QMessageBox.warning(self, "名稱重複", "新的名稱已存在。")
+                    QMessageBox.warning(self, "Duplicate Name", "The new name already exists.")
                     return
                 self.settings.remove(section)
             self.settings.beginGroup(new_section)
@@ -169,12 +169,12 @@ class DMWindow(QWidget):
     def del_profile(self):
         section = self.get_selected_section()
         if not section:
-            QMessageBox.information(self, "請先選擇", "請點選要刪除的設定檔。")
+            QMessageBox.information(self, "Please Select", "Please select a profile to delete.")
             return
         reply = QMessageBox.question(
             self,
-            "確定刪除",
-            f"確定要刪除 [{section}] 嗎？",
+            "Confirm Delete",
+            f"Are you sure you want to delete [{section}]?",
             QMessageBox.Yes | QMessageBox.No,
         )
         if reply == QMessageBox.Yes:
@@ -184,10 +184,10 @@ class DMWindow(QWidget):
     def start_dm(self):
         section = self.get_selected_section()
         if not section:
-            QMessageBox.information(self, "請先選擇", "請點選一個設定檔啟動。")
+            QMessageBox.information(self, "Please Select", "Please select a profile to start.")
             return
         if self.active_thread and self.active_thread.isRunning():
-            QMessageBox.warning(self, "進程已啟動", "請先停止現有進程。")
+            QMessageBox.warning(self, "Process Running", "Please stop the current process first.")
             return
         profile_data = {}
         self.settings.beginGroup(section)
@@ -202,21 +202,21 @@ class DMWindow(QWidget):
         self.active_thread.start()
         self.status = self.STATUS_RUNNING
         self.update_buttons()
-        self.status_label.setText("狀態：運行中")
+        self.status_label.setText("Status: Running")
 
     def pause_dm(self):
         if self.active_thread:
             self.active_thread.pause()
             self.status = self.STATUS_PAUSED
             self.update_buttons()
-            self.status_label.setText("狀態：暫停中")
+            self.status_label.setText("Status: Paused")
 
     def resume_dm(self):
         if self.active_thread:
             self.active_thread.resume()
             self.status = self.STATUS_RUNNING
             self.update_buttons()
-            self.status_label.setText("狀態：運行中")
+            self.status_label.setText("Status: Running")
 
     def stop_dm(self):
         if self.active_thread:
@@ -225,13 +225,13 @@ class DMWindow(QWidget):
             self.active_thread = None
             self.status = self.STATUS_ENDED
             self.update_buttons()
-            self.status_label.setText("狀態：已結束")
+            self.status_label.setText("Status: Ended")
 
     def on_thread_end(self):
         self.active_thread = None
         self.status = self.STATUS_IDLE
         self.update_buttons()
-        self.status_label.setText("狀態：已結束")
+        self.status_label.setText("Status: Ended")
 
     def update_buttons(self):
         has_sel = self.profile_list.currentRow() >= 0

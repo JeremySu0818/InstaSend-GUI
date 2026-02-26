@@ -20,7 +20,7 @@ from PyQt5.QtCore import Qt
 
 
 class ProfileDialog(QDialog):
-    def __init__(self, parent=None, profile_data=None, title="編輯設定檔"):
+    def __init__(self, parent=None, profile_data=None, title="Edit Profile"):
         super().__init__(parent)
         self.setWindowTitle(title)
         self.setMinimumSize(560, 500)
@@ -29,9 +29,9 @@ class ProfileDialog(QDialog):
         self.tab_basic = QWidget()
         self.tab_message = QWidget()
         self.tab_settings = QWidget()
-        self.tabs.addTab(self.tab_basic, "基本資料")
-        self.tabs.addTab(self.tab_message, "發送訊息")
-        self.tabs.addTab(self.tab_settings, "發送設定")
+        self.tabs.addTab(self.tab_basic, "Basic Info")
+        self.tabs.addTab(self.tab_message, "Messages")
+        self.tabs.addTab(self.tab_settings, "Settings")
 
         layout_basic = QFormLayout()
         self.edit_name = QLineEdit()
@@ -39,7 +39,7 @@ class ProfileDialog(QDialog):
         self.edit_password = QLineEdit()
         self.edit_password.setEchoMode(QLineEdit.Password)
 
-        self.toggle_password_btn = QPushButton("顯示")
+        self.toggle_password_btn = QPushButton("Show")
         self.toggle_password_btn.setObjectName("togglePasswordBtn")
         self.toggle_password_btn.setMinimumWidth(80)
         self.toggle_password_btn.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
@@ -51,45 +51,45 @@ class ProfileDialog(QDialog):
         pw_layout.setSpacing(8)
         pw_layout.addWidget(self.edit_password, 1)
         pw_layout.addWidget(self.toggle_password_btn, 0)
-        layout_basic.addRow("設定檔名稱 *", self.edit_name)
-        layout_basic.addRow("Instagram 帳號 *", self.edit_username)
-        layout_basic.addRow("Instagram 密碼 *", pw_layout)
-        layout_basic.addRow("目標用戶 (User ID) *", self.edit_target)
-        layout_basic.addRow("備註說明", self.edit_note)
+        layout_basic.addRow("Profile Name *", self.edit_name)
+        layout_basic.addRow("Instagram Username *", self.edit_username)
+        layout_basic.addRow("Instagram Password *", pw_layout)
+        layout_basic.addRow("Target User (User ID) *", self.edit_target)
+        layout_basic.addRow("Notes", self.edit_note)
         self.tab_basic.setLayout(layout_basic)
 
         layout_msg = QVBoxLayout()
         self.edit_message = QTextEdit()
-        self.edit_message.setPlaceholderText("請輸入要發送的訊息（多行可循環發送）")
+        self.edit_message.setPlaceholderText("Please enter messages (one per line, will cycle through)")
         self.edit_message.setFixedHeight(200)
         layout_msg.addWidget(self.edit_message)
         self.tab_message.setLayout(layout_msg)
 
         layout_send = QFormLayout()
         self.combo_mode = QComboBox()
-        self.combo_mode.addItems(["發送單條", "發送多條", "無限發送"])
+        self.combo_mode.addItems(["Send Single", "Send Multiple", "Infinite Send"])
         self.spin_count = QSpinBox()
         self.spin_count.setRange(1, 9999)
         self.combo_interval_mode = QComboBox()
-        self.combo_interval_mode.addItems(["固定間隔", "亂數間隔"])
+        self.combo_interval_mode.addItems(["Fixed Interval", "Random Interval"])
         self.spin_interval = QDoubleSpinBox()
         self.spin_interval.setRange(0, 3600)
-        self.spin_interval.setSuffix("秒")
+        self.spin_interval.setSuffix("s")
         self.spin_interval.setSingleStep(0.5)
         self.spin_interval_min = QDoubleSpinBox()
         self.spin_interval_min.setRange(0, 3600)
-        self.spin_interval_min.setSuffix("秒")
+        self.spin_interval_min.setSuffix("s")
         self.spin_interval_min.setSingleStep(0.5)
         self.spin_interval_max = QDoubleSpinBox()
         self.spin_interval_max.setRange(0, 3600)
-        self.spin_interval_max.setSuffix("秒")
+        self.spin_interval_max.setSuffix("s")
         self.spin_interval_max.setSingleStep(0.5)
-        layout_send.addRow("發送模式 *", self.combo_mode)
-        layout_send.addRow("發送條數", self.spin_count)
-        layout_send.addRow("間隔模式 *", self.combo_interval_mode)
-        layout_send.addRow("固定間隔", self.spin_interval)
-        layout_send.addRow("最小間隔", self.spin_interval_min)
-        layout_send.addRow("最大間隔", self.spin_interval_max)
+        layout_send.addRow("Send Mode *", self.combo_mode)
+        layout_send.addRow("Send Count", self.spin_count)
+        layout_send.addRow("Interval Mode *", self.combo_interval_mode)
+        layout_send.addRow("Fixed Interval", self.spin_interval)
+        layout_send.addRow("Min Interval", self.spin_interval_min)
+        layout_send.addRow("Max Interval", self.spin_interval_max)
         self.tab_settings.setLayout(layout_send)
 
         self.button_box = QDialogButtonBox(
@@ -116,10 +116,10 @@ class ProfileDialog(QDialog):
     def toggle_password(self):
         if self.edit_password.echoMode() == QLineEdit.Password:
             self.edit_password.setEchoMode(QLineEdit.Normal)
-            self.toggle_password_btn.setText("隱藏")
+            self.toggle_password_btn.setText("Hide")
         else:
             self.edit_password.setEchoMode(QLineEdit.Password)
-            self.toggle_password_btn.setText("顯示")
+            self.toggle_password_btn.setText("Show")
 
     def on_mode_change(self):
         mode_index = self.combo_mode.currentIndex()
@@ -202,8 +202,8 @@ class ProfileDialog(QDialog):
         if mode_val == "single" and "\n" in message_text:
             QMessageBox.warning(
                 self,
-                "提示",
-                "您選擇的是『發送單條』模式，但輸入了多行訊息。\n\n系統將只會發送第一行。",
+                "Hint",
+                "You selected 'Send Single' mode, but entered multiple lines.\n\nThe system will only send the first line.",
             )
 
         return {
