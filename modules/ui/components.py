@@ -1,4 +1,3 @@
-# ui/components.py
 from PyQt5.QtWidgets import (
     QDialog,
     QTabWidget,
@@ -17,10 +16,11 @@ from PyQt5.QtWidgets import (
     QSizePolicy,
 )
 from PyQt5.QtCore import Qt
+from core.profile import ProfileData, SEND_MODES, INTERVAL_MODES
 
 
 class ProfileDialog(QDialog):
-    def __init__(self, parent=None, profile_data=None, title="Edit Profile"):
+    def __init__(self, parent=None, profile: ProfileData | None = None, title="Edit Profile"):
         super().__init__(parent)
         self.setWindowTitle(title)
         self.setMinimumSize(560, 500)
@@ -33,6 +33,7 @@ class ProfileDialog(QDialog):
         self.tabs.addTab(self.tab_message, "Messages")
         self.tabs.addTab(self.tab_settings, "Settings")
 
+
         layout_basic = QFormLayout()
         self.edit_name = QLineEdit()
         self.edit_username = QLineEdit()
@@ -43,7 +44,7 @@ class ProfileDialog(QDialog):
         self.toggle_password_btn.setObjectName("togglePasswordBtn")
         self.toggle_password_btn.setMinimumWidth(80)
         self.toggle_password_btn.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        self.toggle_password_btn.clicked.connect(self.toggle_password)
+        self.toggle_password_btn.clicked.connect(self._toggle_password)
 
         self.edit_target = QLineEdit()
         self.edit_note = QLineEdit()
@@ -58,12 +59,16 @@ class ProfileDialog(QDialog):
         layout_basic.addRow("Notes", self.edit_note)
         self.tab_basic.setLayout(layout_basic)
 
+
         layout_msg = QVBoxLayout()
         self.edit_message = QTextEdit()
-        self.edit_message.setPlaceholderText("Please enter messages (one per line, will cycle through)")
+        self.edit_message.setPlaceholderText(
+            "Please enter messages (one per line, will cycle through)"
+        )
         self.edit_message.setFixedHeight(200)
         layout_msg.addWidget(self.edit_message)
         self.tab_message.setLayout(layout_msg)
+
 
         layout_send = QFormLayout()
         self.combo_mode = QComboBox()
@@ -92,10 +97,11 @@ class ProfileDialog(QDialog):
         layout_send.addRow("Max Interval", self.spin_interval_max)
         self.tab_settings.setLayout(layout_send)
 
+
         self.button_box = QDialogButtonBox(
             QDialogButtonBox.Ok | QDialogButtonBox.Cancel
         )
-        self.button_box.accepted.connect(self.accept)
+        self.button_box.accepted.connect(self._on_accept)
         self.button_box.rejected.connect(self.reject)
 
         main_layout = QVBoxLayout()
@@ -103,17 +109,17 @@ class ProfileDialog(QDialog):
         main_layout.addWidget(self.button_box)
         self.setLayout(main_layout)
 
-        self.combo_mode.currentIndexChanged.connect(self.on_mode_change)
-        self.combo_interval_mode.currentIndexChanged.connect(
-            self.on_interval_mode_change
-        )
-        self.on_mode_change()
-        self.on_interval_mode_change()
+        self.combo_mode.currentIndexChanged.connect(self._on_mode_change)
+        self.combo_interval_mode.currentIndexChanged.connect(self._on_interval_mode_change)
+        self._on_mode_change()
+        self._on_interval_mode_change()
 
-        if profile_data:
-            self.load_profile(profile_data)
+        if profile:
+            self._load_profile(profile)
 
-    def toggle_password(self):
+
+
+    def _toggle_password(self):
         if self.edit_password.echoMode() == QLineEdit.Password:
             self.edit_password.setEchoMode(QLineEdit.Normal)
             self.toggle_password_btn.setText("Hide")
@@ -121,102 +127,79 @@ class ProfileDialog(QDialog):
             self.edit_password.setEchoMode(QLineEdit.Password)
             self.toggle_password_btn.setText("Show")
 
-    def on_mode_change(self):
-        mode_index = self.combo_mode.currentIndex()
-        show_count = mode_index == 1
-        self.spin_count.setVisible(show_count)
-        label = self.tab_settings.layout().labelForField(self.spin_count)
+    def _set_row_visible(self, widget, visible: bool):
+        widget.setVisible(visible)
+        label = self.tab_settings.layout().labelForField(widget)
         if label:
-            label.setVisible(show_count)
+            label.setVisible(visible)
+
+    def _on_mode_change(self):
+        mode_index = self.combo_mode.currentIndex()
+        self._set_row_visible(self.spin_count, mode_index == 1)
 
         show_interval = mode_index != 0
-        self.combo_interval_mode.setVisible(show_interval)
-        label = self.tab_settings.layout().labelForField(self.combo_interval_mode)
-        if label:
-            label.setVisible(show_interval)
-        self.on_interval_mode_change()
+        self._set_row_visible(self.combo_interval_mode, show_interval)
+        self._on_interval_mode_change()
 
-    def on_interval_mode_change(self):
+    def _on_interval_mode_change(self):
         mode_index = self.combo_mode.currentIndex()
         if mode_index == 0:
-            for w in [
-                self.spin_interval,
-                self.spin_interval_min,
-                self.spin_interval_max,
-            ]:
-                w.setVisible(False)
-                label = self.tab_settings.layout().labelForField(w)
-                if label:
-                    label.setVisible(False)
+            for w in [self.spin_interval, self.spin_interval_min, self.spin_interval_max]:
+                self._set_row_visible(w, False)
             return
 
         is_fixed = self.combo_interval_mode.currentIndex() == 0
-        self.spin_interval.setVisible(is_fixed)
-        self.spin_interval_min.setVisible(not is_fixed)
-        self.spin_interval_max.setVisible(not is_fixed)
+        self._set_row_visible(self.spin_interval, is_fixed)
+        self._set_row_visible(self.spin_interval_min, not is_fixed)
+        self._set_row_visible(self.spin_interval_max, not is_fixed)
 
-        for w, visible in [
-            (self.spin_interval, is_fixed),
-            (self.spin_interval_min, not is_fixed),
-            (self.spin_interval_max, not is_fixed),
-        ]:
-            label = self.tab_settings.layout().labelForField(w)
-            if label:
-                label.setVisible(visible)
+    def _on_accept(self):
+        profile = self.get_profile()
+        if not profile.validate_required():
+            QMessageBox.warning(
+                self, "Incomplete Fields", "Please fill in all required fields."
+            )
+            return
 
-    def load_profile(self, p):
-        SEND_MODES = ["single", "multi", "infinite"]
-        INTERVAL_MODES = ["fixed", "random"]
-        mode_map = {
-            "fixed_count": "multi",
-            "single": "single",
-            "multi": "multi",
-            "infinite": "infinite",
-        }
-        mode = mode_map.get(p.get("send_mode", "single"), "single")
-        interval = (
-            p.get("interval_mode", "fixed")
-            if p.get("interval_mode", "fixed") in INTERVAL_MODES
-            else "fixed"
-        )
-
-        self.edit_name.setText(p.get("section", ""))
-        self.edit_username.setText(p.get("username", ""))
-        self.edit_password.setText(p.get("password", ""))
-        self.edit_target.setText(p.get("target_user", ""))
-        self.edit_note.setText(p.get("dm_note", ""))
-        self.edit_message.setPlainText(p.get("message", ""))
-
-        self.combo_mode.setCurrentIndex(SEND_MODES.index(mode))
-        self.spin_count.setValue(int(p.get("send_count", 1)))
-        self.combo_interval_mode.setCurrentIndex(INTERVAL_MODES.index(interval))
-        self.spin_interval.setValue(float(p.get("send_interval", 0)))
-        self.spin_interval_min.setValue(float(p.get("send_interval_min", 0)))
-        self.spin_interval_max.setValue(float(p.get("send_interval_max", 0)))
-
-    def get_profile(self):
-        mode_val = ["single", "multi", "infinite"][self.combo_mode.currentIndex()]
-        interval_mode_val = ["fixed", "random"][self.combo_interval_mode.currentIndex()]
-        message_text = self.edit_message.toPlainText().strip()
-
-        if mode_val == "single" and "\n" in message_text:
+        if profile.send_mode == "single" and "\n" in profile.message:
             QMessageBox.warning(
                 self,
                 "Hint",
-                "You selected 'Send Single' mode, but entered multiple lines.\n\nThe system will only send the first line.",
+                "You selected 'Send Single' mode, but entered multiple lines.\n\n"
+                "The system will only send the first line.",
             )
 
-        return {
-            "section": self.edit_name.text().strip(),
-            "username": self.edit_username.text().strip(),
-            "password": self.edit_password.text().strip(),
-            "target_user": self.edit_target.text().strip(),
-            "dm_note": self.edit_note.text().strip(),
-            "message": message_text,
-            "send_mode": mode_val,
-            "send_count": self.spin_count.value() if mode_val == "multi" else 1,
-            "interval_mode": interval_mode_val,
-            "send_interval": self.spin_interval.value(),
-            "send_interval_min": self.spin_interval_min.value(),
-            "send_interval_max": self.spin_interval_max.value(),
-        }
+        self.accept()
+
+    def _load_profile(self, p: ProfileData):
+        self.edit_name.setText(p.section)
+        self.edit_username.setText(p.username)
+        self.edit_password.setText(p.password)
+        self.edit_target.setText(p.target_user)
+        self.edit_note.setText(p.dm_note)
+        self.edit_message.setPlainText(p.message)
+
+        self.combo_mode.setCurrentIndex(p.send_mode_index)
+        self.spin_count.setValue(p.send_count)
+        self.combo_interval_mode.setCurrentIndex(p.interval_mode_index)
+        self.spin_interval.setValue(p.send_interval)
+        self.spin_interval_min.setValue(p.send_interval_min)
+        self.spin_interval_max.setValue(p.send_interval_max)
+
+
+
+    def get_profile(self) -> ProfileData:
+        return ProfileData(
+            section=self.edit_name.text().strip(),
+            username=self.edit_username.text().strip(),
+            password=self.edit_password.text().strip(),
+            target_user=self.edit_target.text().strip(),
+            dm_note=self.edit_note.text().strip(),
+            message=self.edit_message.toPlainText().strip(),
+            send_mode=SEND_MODES[self.combo_mode.currentIndex()],
+            send_count=self.spin_count.value() if self.combo_mode.currentIndex() == 1 else 1,
+            interval_mode=INTERVAL_MODES[self.combo_interval_mode.currentIndex()],
+            send_interval=self.spin_interval.value(),
+            send_interval_min=self.spin_interval_min.value(),
+            send_interval_max=self.spin_interval_max.value(),
+        )

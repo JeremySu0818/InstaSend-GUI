@@ -1,6 +1,3 @@
-# ui/main_window.py
-
-import time
 from PyQt5.QtWidgets import (
     QWidget,
     QLabel,
@@ -17,6 +14,7 @@ from utils.system import resource_path
 from ui.styles import QSS_STYLE
 from ui.components import ProfileDialog
 from core.worker import SendDMThread
+from core.profile import ProfileData
 
 
 class DMWindow(QWidget):
@@ -25,10 +23,16 @@ class DMWindow(QWidget):
     STATUS_PAUSED = 2
     STATUS_ENDED = 3
 
+    _STATUS_LABELS = {
+        STATUS_IDLE: "Status: Not Started",
+        STATUS_RUNNING: "Status: Running",
+        STATUS_PAUSED: "Status: Paused",
+        STATUS_ENDED: "Status: Ended",
+    }
+
     def __init__(self):
         super().__init__()
         self.setWindowIcon(QIcon(resource_path("assets/icon.ico")))
-        self.status = self.STATUS_IDLE
         self.setWindowTitle("InstaSend")
         self.setMinimumSize(QSize(650, 520))
         self.setStyleSheet(QSS_STYLE)
@@ -37,7 +41,7 @@ class DMWindow(QWidget):
         self.profile_list = QListWidget()
         self.profile_list.setFixedWidth(220)
         self.profile_list.itemDoubleClicked.connect(self.edit_profile)
-        self.profile_list.currentRowChanged.connect(self.update_buttons)
+        self.profile_list.currentRowChanged.connect(self._update_buttons)
         main.addWidget(self.profile_list, 1)
 
         right = QVBoxLayout()
@@ -66,7 +70,7 @@ class DMWindow(QWidget):
         right.addWidget(group_run)
 
         right.addSpacing(12)
-        self.status_label = QLabel("Status: Not Started")
+        self.status_label = QLabel(self._STATUS_LABELS[self.STATUS_IDLE])
         self.status_label.setAlignment(Qt.AlignCenter)
         self.status_label.setFixedHeight(44)
         right.addWidget(self.status_label)
@@ -82,94 +86,98 @@ class DMWindow(QWidget):
         self.btn_stop.clicked.connect(self.stop_dm)
 
         self.settings = QSettings("MyCompany", "InstaSend")
-        self.profile_names = []
-        self.refresh_profiles()
-        self.active_thread = None
-        self.active_profile = None
-        self.status = self.STATUS_IDLE
-        self.update_buttons()
+        self.profile_names: list[str] = []
+        self.active_thread: SendDMThread | None = None
+        self.active_profile: ProfileData | None = None
+        self._status = self.STATUS_IDLE
+        self._refresh_profiles()
+        self._update_buttons()
 
-    def refresh_profiles(self):
+
+
+    def _change_status(self, new_status: int):
+        self._status = new_status
+        self.status_label.setText(self._STATUS_LABELS.get(new_status, "Status: Unknown"))
+        self._update_buttons()
+
+    def _update_buttons(self):
+        has_sel = self.profile_list.currentRow() >= 0
+        is_running = self._status == self.STATUS_RUNNING
+        is_paused = self._status == self.STATUS_PAUSED
+        self.btn_new.setEnabled(not is_running and not is_paused)
+        self.btn_edit.setEnabled(has_sel and not is_running and not is_paused)
+        self.btn_del.setEnabled(has_sel and not is_running and not is_paused)
+        self.profile_list.setEnabled(not is_running and not is_paused)
+        self.btn_send.setEnabled(has_sel and self._status == self.STATUS_IDLE)
+        self.btn_pause.setEnabled(is_running)
+        self.btn_resume.setEnabled(is_paused)
+        self.btn_stop.setEnabled(is_running or is_paused)
+
+
+
+    def _refresh_profiles(self):
         self.profile_list.clear()
         self.profile_names = sorted(self.settings.childGroups())
         for name in self.profile_names:
             self.settings.beginGroup(name)
             note = self.settings.value("dm_note", "")
             self.settings.endGroup()
-            display = name if not note else f"{name} ({note})"
+            display = f"{name} ({note})" if note else name
             self.profile_list.addItem(display)
-        self.update_buttons()
+        self._update_buttons()
 
-    def get_selected_section(self):
+    def _get_selected_section(self) -> str | None:
         row = self.profile_list.currentRow()
         if 0 <= row < len(self.profile_names):
             return self.profile_names[row]
         return None
 
-    def _get_profile_data(self, section):
-        profile_data = {}
+    def _load_profile(self, section: str) -> ProfileData:
+        raw: dict = {}
         self.settings.beginGroup(section)
         for key in self.settings.childKeys():
-            profile_data[key] = self.settings.value(key)
+            raw[key] = self.settings.value(key)
         self.settings.endGroup()
-        return profile_data
+        raw["section"] = section
+        return ProfileData.from_dict(raw)
+
+    def _save_profile(self, profile: ProfileData):
+        self.settings.beginGroup(profile.section)
+        for key, value in profile.to_settings_dict().items():
+            self.settings.setValue(key, value)
+        self.settings.endGroup()
+
+
 
     def add_profile(self):
         dialog = ProfileDialog(self, title="Add Profile")
         if dialog.exec_():
-            d = dialog.get_profile()
-            name = d["section"]
-            if not all(
-                [name, d["username"], d["password"], d["target_user"], d["message"]]
-            ):
-                QMessageBox.warning(self, "Incomplete Fields", "Please fill in all required fields.")
-                return
-            if name in self.settings.childGroups():
+            profile = dialog.get_profile()
+            if profile.section in self.settings.childGroups():
                 QMessageBox.warning(self, "Duplicate Name", "This profile name already exists.")
                 return
-            self.settings.beginGroup(name)
-            for key, value in d.items():
-                if key != "section":
-                    self.settings.setValue(key, value)
-            self.settings.endGroup()
-            self.refresh_profiles()
+            self._save_profile(profile)
+            self._refresh_profiles()
 
     def edit_profile(self):
-        section = self.get_selected_section()
+        section = self._get_selected_section()
         if not section:
             QMessageBox.information(self, "Please Select", "Please select a profile to edit.")
             return
-        profile_data = self._get_profile_data(section)
-        profile_data["section"] = section
-        dialog = ProfileDialog(self, profile_data=profile_data, title="Edit Profile")
+        profile = self._load_profile(section)
+        dialog = ProfileDialog(self, profile=profile, title="Edit Profile")
         if dialog.exec_():
-            d2 = dialog.get_profile()
-            new_section = d2["section"]
-            if not all(
-                [
-                    new_section,
-                    d2["username"],
-                    d2["password"],
-                    d2["target_user"],
-                    d2["message"],
-                ]
-            ):
-                QMessageBox.warning(self, "Incomplete Fields", "Please fill in all required fields.")
-                return
-            if new_section != section:
-                if new_section in self.settings.childGroups():
+            updated = dialog.get_profile()
+            if updated.section != section:
+                if updated.section in self.settings.childGroups():
                     QMessageBox.warning(self, "Duplicate Name", "The new name already exists.")
                     return
                 self.settings.remove(section)
-            self.settings.beginGroup(new_section)
-            for key, value in d2.items():
-                if key != "section":
-                    self.settings.setValue(key, value)
-            self.settings.endGroup()
-            self.refresh_profiles()
+            self._save_profile(updated)
+            self._refresh_profiles()
 
     def del_profile(self):
-        section = self.get_selected_section()
+        section = self._get_selected_section()
         if not section:
             QMessageBox.information(self, "Please Select", "Please select a profile to delete.")
             return
@@ -181,65 +189,45 @@ class DMWindow(QWidget):
         )
         if reply == QMessageBox.Yes:
             self.settings.remove(section)
-            self.refresh_profiles()
+            self._refresh_profiles()
+
+
 
     def start_dm(self):
-        section = self.get_selected_section()
+        section = self._get_selected_section()
         if not section:
             QMessageBox.information(self, "Please Select", "Please select a profile to start.")
             return
         if self.active_thread and self.active_thread.isRunning():
             QMessageBox.warning(self, "Process Running", "Please stop the current process first.")
             return
-        profile_data = self._get_profile_data(section)
-        self.active_profile = profile_data
-        self.active_thread = SendDMThread(profile_data)
+
+        profile = self._load_profile(section)
+        self.active_profile = profile
+        self.active_thread = SendDMThread(profile)
         self.active_thread.status_signal.connect(self.status_label.setText)
         self.active_thread.error_signal.connect(self.status_label.setText)
-        self.active_thread.end_signal.connect(self.on_thread_end)
+        self.active_thread.end_signal.connect(self._on_thread_end)
         self.active_thread.start()
-        self.status = self.STATUS_RUNNING
-        self.update_buttons()
-        self.status_label.setText("Status: Running")
+        self._change_status(self.STATUS_RUNNING)
 
     def pause_dm(self):
         if self.active_thread:
             self.active_thread.pause()
-            self.status = self.STATUS_PAUSED
-            self.update_buttons()
-            self.status_label.setText("Status: Paused")
+            self._change_status(self.STATUS_PAUSED)
 
     def resume_dm(self):
         if self.active_thread:
             self.active_thread.resume()
-            self.status = self.STATUS_RUNNING
-            self.update_buttons()
-            self.status_label.setText("Status: Running")
+            self._change_status(self.STATUS_RUNNING)
 
     def stop_dm(self):
         if self.active_thread:
             self.active_thread.stop()
             self.active_thread.wait()
             self.active_thread = None
-            self.status = self.STATUS_ENDED
-            self.update_buttons()
-            self.status_label.setText("Status: Ended")
+            self._change_status(self.STATUS_ENDED)
 
-    def on_thread_end(self):
+    def _on_thread_end(self):
         self.active_thread = None
-        self.status = self.STATUS_IDLE
-        self.update_buttons()
-        self.status_label.setText("Status: Ended")
-
-    def update_buttons(self):
-        has_sel = self.profile_list.currentRow() >= 0
-        is_running = self.status == self.STATUS_RUNNING
-        is_paused = self.status == self.STATUS_PAUSED
-        self.btn_new.setEnabled(not is_running and not is_paused)
-        self.btn_edit.setEnabled(has_sel and not is_running and not is_paused)
-        self.btn_del.setEnabled(has_sel and not is_running and not is_paused)
-        self.profile_list.setEnabled(not is_running and not is_paused)
-        self.btn_send.setEnabled(has_sel and self.status == self.STATUS_IDLE)
-        self.btn_pause.setEnabled(is_running)
-        self.btn_resume.setEnabled(is_paused)
-        self.btn_stop.setEnabled(is_running or is_paused)
+        self._change_status(self.STATUS_IDLE)

@@ -1,5 +1,3 @@
-# ui/styles.py
-
 QSS_STYLE = """
 QWidget {
     background-color: #1e1e1e;
